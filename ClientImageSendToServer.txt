@@ -1,0 +1,157 @@
+Note:: For Create an image in controller you need to define [FromForm]
+e.g:
+ [HttpPost("Add")]
+ public async Task<IActionResult> AddPromotion([FromForm]AddPromotionCommand command)
+ {
+     var result = await _mediator.Send(command);
+     return Ok(result);
+ }
+
+Create An Image and save it::
+
+
+1. Save Promotion to Database
+
+| Id  | Name               | Description  | UpdatedBy |
+| --- | ------------------ | ------------ | --------- |
+| 101 | New Year Mega Sale | Flat 50% off | 5         |
+Now Promotion gets saved to DB and receives an ID.
+
+
+2. Check if files are attached
+
+if (request.Files != null && request.Files.Count > 0)
+
+3. Extract file name + extension
+
+var fileName = Path.GetFileNameWithoutExtension(file.FileName);   // offer
+var extension = Path.GetExtension(file.FileName);                // .png
+
+4. Create unique file name
+
+var uniqueFileName = $"{fileName}_{Guid.NewGuid()}{extension}";
+
+If file = offer.png
+Unique filename becomes:
+offer_3aa4c92a-f45d-4f52-abc5-33907e6e.png
+
+5. Get upload folder
+
+var uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "UploadedFiles/Promotions/");
+
+Folder will be like:
+C:\YourProject\Merchant.Api\UploadedFiles\Promotions\
+
+
+6. Create directory (if does not exist)
+
+Directory.CreateDirectory(uploadPath);
+
+
+7. Create full file path
+
+var filePath = Path.Combine(uploadPath, uniqueFileName);
+e.g:
+C:\YourProject\Merchant.Api\UploadedFiles\Promotions\offer_3aa4c92a.png
+
+
+
+8. Copy the file to disk
+
+using (var stream = new FileStream(filePath, FileMode.Create))
+{
+    await file.CopyToAsync(stream);
+}
+
+Now the file is physically saved.
+
+
+9. Create PromotionImage object
+
+| Id | Name  | ImageUrl                                     | PromotionId |
+| -- | ----- | -------------------------------------------- | ----------- |
+| 1  | offer | /UploadedFiles/Promotions/offer_3aa4c92a.png | 101         |
+
+
+
+FullCode::
+ if (request.Files != null && request.Files.Count > 0)
+ {
+     foreach (var file in request.Files)
+     {
+         var fileName = Path.GetFileNameWithoutExtension(file.FileName);
+         var extension = Path.GetExtension(file.FileName);
+         var uniqueFileName = $"{fileName}_{Guid.NewGuid()}{extension}";
+         var uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "UploadedFiles/Promotions/");
+
+         if (!Directory.Exists(uploadPath))
+         {
+             Directory.CreateDirectory(uploadPath);
+         }
+
+         var filePath = Path.Combine(uploadPath, uniqueFileName);
+         PromotionImage carImages = new PromotionImage() { Name = fileName, ImageUrl = "/UploadedFiles/Promotions/" + uniqueFileName, Promotion = promotion };
+         using (var stream = new FileStream(filePath, FileMode.Create))
+         {
+             await file.CopyToAsync(stream);
+         }
+
+         promotion.Images.Add(carImages);
+     }
+ }
+
+
+
+
+ForUpdating the image::
+
+1. Removing images
+
+if (request.RemImages != null && request.RemImages.Count > 0)
+{
+    foreach (var image in request.RemImages)
+    {
+        var imageToRemove = promotion.Images.Where(x => x.Id == image).First();
+        promotion.Images.Remove(imageToRemove);
+    }
+}
+
+
+
+2. Adding new images
+
+if (request.Images != null && request.Images.Count > 0)
+{
+    foreach (var file in request.Images)
+    {
+        var fileName = Path.GetFileNameWithoutExtension(file.FileName);
+        var extension = Path.GetExtension(file.FileName);
+        var uniqueFileName = $"{fileName}_{Guid.NewGuid()}{extension}";
+        var uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "UploadedFiles/Promotions/");
+
+        if (!Directory.Exists(uploadPath))
+        {
+            Directory.CreateDirectory(uploadPath);
+        }
+
+        var filePath = Path.Combine(uploadPath, uniqueFileName);
+        PromotionImage carImages = new PromotionImage() 
+        { 
+            Name = fileName, 
+            ImageUrl = "/UploadedFiles/Promotions/" + uniqueFileName, 
+            Promotion = promotion 
+        };
+
+        using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+        promotion.Images.Add(carImages);
+    }
+}
+
+
+
+
+
